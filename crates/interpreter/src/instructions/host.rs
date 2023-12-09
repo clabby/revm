@@ -368,6 +368,9 @@ pub fn static_call<H: Host, SPEC: Spec>(interpreter: &mut Interpreter<'_>, host:
 
 // EIP-3074
 pub fn auth<H: Host, SPEC: Spec>(interpreter: &mut Interpreter<'_>, host: &mut H) {
+    // The minimum amount of memory expansion (in bytes) required to hold the signature and commit.
+    const MINIMUM_EXPANSION: usize = 97;
+
     // Pop the `authority` off of the stack
     pop_address!(interpreter, authority);
     // Pop the signature offset and length off of the stack
@@ -379,30 +382,36 @@ pub fn auth<H: Host, SPEC: Spec>(interpreter: &mut Interpreter<'_>, host: &mut H
     // Charge the fixed cost for the `AUTH` opcode
     gas!(interpreter, gas::AUTH);
 
-    // Grab the memory region for the input data and charge for any memory expansion
-    shared_memory_resize!(interpreter, signature_offset, signature_len);
+    // Grab the memory region for the input data and charge for any memory expansion.
+    // At a minimum, we must expand memory by 97 bytes to hold the signature and the
+    // commit.
+    shared_memory_resize!(
+        interpreter,
+        signature_offset,
+        (signature_len >= MINIMUM_EXPANSION)
+            .then_some(signature_len)
+            .unwrap_or(MINIMUM_EXPANSION)
+    );
     let mem_slice = interpreter
         .shared_memory
-        .slice(signature_offset, signature_len);
+        .slice(signature_offset, MINIMUM_EXPANSION);
 
     // Pull the signature from the first 65 bytes of the memory region.
     let signature = {
         // Place the yParity value, located at the first byte, in the last byte.
-        let mut sig = [0u8; 65];
-        sig[0..64].copy_from_slice(&mem_slice[1..65]);
-        sig[64] = mem_slice[0];
-        sig
-    };
-    let sig_len = signature.len();
-
-    // If the memory region is longer than 65 bytes, pull the commit from the next [1, 32] bytes.
-    let commit = (mem_slice.len() > sig_len).then(|| {
-        let mut buf = B256::ZERO;
-        let remaining = mem_slice.len() - sig_len;
-        let cpy_size = (remaining > 32).then_some(32).unwrap_or(remaining);
-        buf[0..remaining].copy_from_slice(&mem_slice[sig_len..sig_len + cpy_size]);
+        // format: [r, s, yParity]
+        let mut buf = [0u8; 65];
+        buf[0..64].copy_from_slice(&mem_slice[1..65]);
+        buf[64] = mem_slice[0];
         buf
-    });
+    };
+
+    // Pull the commit from the next 32 bytes.
+    let commit = {
+        let mut buf = B256::ZERO;
+        buf[..].copy_from_slice(&mem_slice[65..MINIMUM_EXPANSION]);
+        buf
+    };
 
     // Build the original auth message and compute the hash.
     let mut message = [0u8; 97];
@@ -413,13 +422,17 @@ pub fn auth<H: Host, SPEC: Spec>(interpreter: &mut Interpreter<'_>, host: &mut H
             .as_ref(),
     );
     message[33..65].copy_from_slice(interpreter.contract().address.into_word().as_ref());
-    message[65..97].copy_from_slice(commit.unwrap_or_default().as_ref());
+    message[65..97].copy_from_slice(commit.as_ref());
     let message_hash = revm_primitives::keccak256(&message);
 
     // Verify the signature
     let recovered = revm_primitives::secp256k1::ecrecover(&signature, &message_hash);
 
     if recovered.is_err() || Address::from_word(recovered.unwrap_or_default()) != authority {
+        // The spec states that the `AUTH` opcode returns 0 and unsets the authorized account
+        // if the signature is either invalid, or the recovered address does not match the
+        // authority.
+        interpreter.authorized = None;
         push!(interpreter, U256::ZERO);
     } else {
         push!(interpreter, U256::from(1));
@@ -526,7 +539,7 @@ fn prepare_call_inputs<H: Host, SPEC: Spec>(
                     scheme,
                 }
             } else {
-                interpreter.instruction_result = InstructionResult::ActiveAccountUnsetAuthCall;
+                interpreter.instruction_result = InstructionResult::UnauthorizedAuthCall;
                 return;
             }
         }

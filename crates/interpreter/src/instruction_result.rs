@@ -24,7 +24,7 @@ pub enum InstructionResult {
     OpcodeNotFound,
     CallNotAllowedInsideStatic,
     StateChangeDuringStaticCall,
-    ActiveAccountUnsetAuthCall,
+    UnauthorizedAuthCall,
     InvalidFEOpcode,
     InvalidJump,
     NotActivated,
@@ -170,9 +170,7 @@ impl From<InstructionResult> for SuccessOrHalt {
             InstructionResult::StateChangeDuringStaticCall => {
                 Self::Halt(Halt::StateChangeDuringStaticCall)
             }
-            InstructionResult::ActiveAccountUnsetAuthCall => {
-                Self::Halt(Halt::ActiveAccountUnsetAuthCall)
-            }
+            InstructionResult::UnauthorizedAuthCall => Self::Halt(Halt::UnauthorizedAuthCall),
             InstructionResult::InvalidFEOpcode => Self::Halt(Halt::InvalidFEOpcode),
             InstructionResult::InvalidJump => Self::Halt(Halt::InvalidJump),
             InstructionResult::NotActivated => Self::Halt(Halt::NotActivated),

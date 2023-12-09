@@ -315,7 +315,12 @@ fn xfer_cost(is_call_or_callcode: bool, transfers_value: bool, is_authcall: bool
 }
 
 #[inline]
-fn new_cost<SPEC: Spec>(is_call_or_staticcall: bool, is_new: bool, transfers_value: bool, is_authcall: bool) -> u64 {
+fn new_cost<SPEC: Spec>(
+    is_call_or_staticcall: bool,
+    is_new: bool,
+    transfers_value: bool,
+    is_authcall: bool,
+) -> u64 {
     if is_call_or_staticcall || is_authcall {
         // EIP-161: State trie clearing (invariant-preserving alternative)
         if SPEC::enabled(SPURIOUS_DRAGON) {

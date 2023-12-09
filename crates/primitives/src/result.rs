@@ -363,7 +363,7 @@ pub enum Halt {
     /* Internal Halts that can be only found inside Inspector */
     OverflowPayment,
     StateChangeDuringStaticCall,
-    ActiveAccountUnsetAuthCall,
+    UnauthorizedAuthCall,
     CallNotAllowedInsideStatic,
     OutOfFund,
     CallTooDeep,
