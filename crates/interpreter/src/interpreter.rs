@@ -8,7 +8,7 @@ pub use contract::Contract;
 pub use shared_memory::{next_multiple_of_32, SharedMemory};
 pub use stack::{Stack, STACK_LIMIT};
 
-use crate::primitives::Bytes;
+use crate::primitives::{Address, Bytes};
 use crate::{Gas, Host, InstructionResult};
 use alloc::boxed::Box;
 
@@ -45,6 +45,8 @@ pub struct Interpreter<'a> {
     pub return_len: usize,
     /// Whether the interpreter is in "staticcall" mode, meaning no state changes can happen.
     pub is_static: bool,
+    /// EIP-3074: Active account for `AUTHCALL` instructions in the current execution frame.
+    pub authorized: Option<Address>,
 }
 
 impl<'a> Interpreter<'a> {
@@ -66,6 +68,7 @@ impl<'a> Interpreter<'a> {
             return_offset: 0,
             shared_memory,
             stack: Stack::new(),
+            authorized: None,
         }
     }
 

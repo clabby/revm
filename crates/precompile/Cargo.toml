@@ -20,24 +20,14 @@ aurora-engine-modexp = { version = "1.0", default-features = false }
 # Optional KZG point evaluation precompile
 c-kzg = { version = "0.4.0", default-features = false, optional = true }
 
-# ecRecover precompile
-k256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
-secp256k1 = { version = "0.28.0", default-features = false, features = [
-    "alloc",
-    "recovery",
-], optional = true }
-
-
 [features]
 default = ["std", "c-kzg", "secp256k1"]
 std = [
     "revm-primitives/std",
-    "k256/std",
     "once_cell/std",
     "ripemd/std",
     "sha2/std",
     "c-kzg?/std",
-    "secp256k1?/std",
 ]
 
 optimism = ["revm-primitives/optimism"]
@@ -46,7 +36,5 @@ optimism = ["revm-primitives/optimism"]
 
 # Enables the KZG point evaluation precompile.
 c-kzg = ["dep:c-kzg", "revm-primitives/c-kzg"]
-# Use `secp256k1` as a faster alternative to `k256`.
-# The problem that `secp256k1` has is it fails to build for `wasm` target on Windows and Mac as it is c lib.
-# In Linux it passes. If you don't require to build wasm on win/mac, it is safe to use it and it is enabled by default.
-secp256k1 = ["dep:secp256k1"]
+# See comment in revm-primitives
+secp256k1 = ["revm-primitives/secp256k1"]

@@ -2412,11 +2412,9 @@ version = "2.2.0"
 dependencies = [
  "aurora-engine-modexp",
  "c-kzg",
- "k256",
  "once_cell",
  "revm-primitives",
  "ripemd",
- "secp256k1",
  "sha2",
  "substrate-bn",
 ]
@@ -2435,7 +2433,9 @@ dependencies = [
  "enumn",
  "hashbrown 0.14.2",
  "hex",
+ "k256",
  "once_cell",
+ "secp256k1",
  "serde",
 ]
 

@@ -8,6 +8,7 @@ pub const JUMPDEST: u64 = 1;
 pub const SELFDESTRUCT: i64 = 24000;
 pub const CREATE: u64 = 32000;
 pub const CALLVALUE: u64 = 9000;
+pub const AUTHCALLVALUE: u64 = 6700;
 pub const NEWACCOUNT: u64 = 25000;
 pub const EXP: u64 = 10;
 pub const MEMORY: u64 = 3;
@@ -39,3 +40,6 @@ pub const WARM_STORAGE_READ_COST: u64 = 100;
 pub const INITCODE_WORD_COST: u64 = 2;
 
 pub const CALL_STIPEND: u64 = 2300;
+
+// EIP-3074: AUTH and AUTHCALL
+pub const AUTH: u64 = 3100;

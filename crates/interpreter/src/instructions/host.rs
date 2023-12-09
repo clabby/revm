@@ -366,6 +366,72 @@ pub fn static_call<H: Host, SPEC: Spec>(interpreter: &mut Interpreter<'_>, host:
     call_inner::<SPEC, H>(CallScheme::StaticCall, interpreter, host);
 }
 
+// EIP-3074
+pub fn auth<H: Host, SPEC: Spec>(interpreter: &mut Interpreter<'_>, host: &mut H) {
+    // Pop the `authority` off of the stack
+    pop_address!(interpreter, authority);
+    // Pop the signature offset and length off of the stack
+    pop!(interpreter, signature_offset, signature_len);
+
+    let signature_offset = as_usize_or_fail!(interpreter, signature_offset);
+    let signature_len = as_usize_or_fail!(interpreter, signature_len);
+
+    // Charge the fixed cost for the `AUTH` opcode
+    gas!(interpreter, gas::AUTH);
+
+    // Grab the memory region for the input data and charge for any memory expansion
+    shared_memory_resize!(interpreter, signature_offset, signature_len);
+    let mem_slice = interpreter
+        .shared_memory
+        .slice(signature_offset, signature_len);
+
+    // Pull the signature from the first 65 bytes of the memory region.
+    let signature = {
+        // Place the yParity value, located at the first byte, in the last byte.
+        let mut sig = [0u8; 65];
+        sig[0..64].copy_from_slice(&mem_slice[1..65]);
+        sig[64] = mem_slice[0];
+        sig
+    };
+    let sig_len = signature.len();
+
+    // If the memory region is longer than 65 bytes, pull the commit from the next [1, 32] bytes.
+    let commit = (mem_slice.len() > sig_len).then(|| {
+        let mut buf = B256::ZERO;
+        let remaining = mem_slice.len() - sig_len;
+        let cpy_size = (remaining > 32).then_some(32).unwrap_or(remaining);
+        buf[0..remaining].copy_from_slice(&mem_slice[sig_len..sig_len + cpy_size]);
+        buf
+    });
+
+    // Build the original auth message and compute the hash.
+    let mut message = [0u8; 97];
+    message[0] = 0x04; // AUTH_MAGIC - add constant?
+    message[1..33].copy_from_slice(
+        U256::from(host.env().cfg.chain_id)
+            .to_be_bytes::<32>()
+            .as_ref(),
+    );
+    message[33..65].copy_from_slice(interpreter.contract().address.into_word().as_ref());
+    message[65..97].copy_from_slice(commit.unwrap_or_default().as_ref());
+    let message_hash = revm_primitives::keccak256(&message);
+
+    // Verify the signature
+    let recovered = revm_primitives::secp256k1::ecrecover(&signature, &message_hash);
+
+    if recovered.is_err() || Address::from_word(recovered.unwrap_or_default()) != authority {
+        push!(interpreter, U256::ZERO);
+    } else {
+        push!(interpreter, U256::from(1));
+        interpreter.authorized = Some(authority);
+    }
+}
+
+// EIP-3074
+pub fn auth_call<H: Host, SPEC: Spec>(interpreter: &mut Interpreter<'_>, host: &mut H) {
+    call_inner::<SPEC, H>(CallScheme::AuthCall, interpreter, host);
+}
+
 #[inline(never)]
 fn prepare_call_inputs<H: Host, SPEC: Spec>(
     interpreter: &mut Interpreter<'_>,
@@ -393,6 +459,19 @@ fn prepare_call_inputs<H: Host, SPEC: Spec>(
             value
         }
         CallScheme::DelegateCall | CallScheme::StaticCall => U256::ZERO,
+        CallScheme::AuthCall => {
+            pop!(interpreter, value);
+            value
+        }
+    };
+
+    if scheme == CallScheme::AuthCall {
+        pop!(interpreter, ext_value);
+        // If `ext_value` is non-zero, then the `AUTHCALL` opcode immediately returns 0.
+        if ext_value != U256::ZERO {
+            push!(interpreter, U256::ZERO);
+            return;
+        }
     };
 
     pop!(interpreter, in_offset, in_len, out_offset, out_len);
@@ -437,9 +516,23 @@ fn prepare_call_inputs<H: Host, SPEC: Spec>(
             apparent_value: interpreter.contract.value,
             scheme,
         },
+        CallScheme::AuthCall => {
+            if let Some(account) = interpreter.authorized {
+                CallContext {
+                    address: to,
+                    caller: account,
+                    code_address: to,
+                    apparent_value: value,
+                    scheme,
+                }
+            } else {
+                interpreter.instruction_result = InstructionResult::ActiveAccountUnsetAuthCall;
+                return;
+            }
+        }
     };
 
-    let transfer = if scheme == CallScheme::Call {
+    let transfer = if matches!(scheme, CallScheme::Call | CallScheme::AuthCall) {
         Transfer {
             source: interpreter.contract.address,
             target: to,
@@ -475,11 +568,15 @@ fn prepare_call_inputs<H: Host, SPEC: Spec>(
             is_cold,
             matches!(scheme, CallScheme::Call | CallScheme::CallCode),
             matches!(scheme, CallScheme::Call | CallScheme::StaticCall),
+            matches!(scheme, CallScheme::AuthCall),
         )
     );
 
     // EIP-150: Gas cost changes for IO-heavy operations
-    let mut gas_limit = if SPEC::enabled(TANGERINE) {
+    let mut gas_limit = if matches!(scheme, CallScheme::AuthCall) && local_gas_limit == 0 {
+        let gas = interpreter.gas().remaining();
+        gas - gas / 64
+    } else if SPEC::enabled(TANGERINE) {
         let gas = interpreter.gas().remaining();
         // take l64 part of gas_limit
         min(gas - gas / 64, local_gas_limit)
@@ -515,6 +612,8 @@ pub fn call_inner<SPEC: Spec, H: Host>(
         CallScheme::DelegateCall => check!(interpreter, HOMESTEAD),
         // EIP-214: New opcode STATICCALL
         CallScheme::StaticCall => check!(interpreter, BYZANTIUM),
+        // EIP-3074: New opcode AUTHCALL
+        CallScheme::AuthCall => check!(interpreter, PRAGUE),
         _ => (),
     }
     interpreter.return_data_buffer = Bytes::new();

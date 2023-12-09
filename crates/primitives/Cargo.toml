@@ -30,6 +30,13 @@ once_cell = { version = "1.18", default-features = false, optional = true }
 enumn = "0.1"
 derive_more = { version = "0.99", optional = true }
 
+# ecrecover
+k256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
+secp256k1 = { version = "0.28.0", default-features = false, features = [
+    "alloc",
+    "recovery",
+], optional = true }
+
 # optional
 serde = { version = "1.0", features = ["derive", "rc"], optional = true }
 
@@ -44,6 +51,8 @@ std = [
     "hex/std",
     "bitvec/std",
     "bitflags/std",
+    "k256/std",
+    "secp256k1?/std",
 ]
 serde = [
     "dep:serde",
@@ -78,3 +87,7 @@ optional_beneficiary_reward = []
 
 # See comments in `revm-precompile`
 c-kzg = ["dep:c-kzg", "dep:once_cell", "dep:derive_more"]
+# Use `secp256k1` as a faster alternative to `k256`.
+# The problem that `secp256k1` has is it fails to build for `wasm` target on Windows and Mac as it is c lib.
+# In Linux it passes. If you don't require to build wasm on win/mac, it is safe to use it and it is enabled by default.
+secp256k1 = ["dep:secp256k1"]

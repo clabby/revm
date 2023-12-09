@@ -69,6 +69,8 @@ pub enum CallScheme {
     DelegateCall,
     /// `STATICCALL`
     StaticCall,
+    /// `AUTHCALL`
+    AuthCall,
 }
 
 /// Context of a runtime call.

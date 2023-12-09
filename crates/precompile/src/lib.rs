@@ -129,7 +129,9 @@ impl SpecId {
             }
             BYZANTIUM | CONSTANTINOPLE | PETERSBURG => Self::BYZANTIUM,
             ISTANBUL | MUIR_GLACIER => Self::ISTANBUL,
-            BERLIN | LONDON | ARROW_GLACIER | GRAY_GLACIER | MERGE | SHANGHAI => Self::BERLIN,
+            BERLIN | LONDON | ARROW_GLACIER | GRAY_GLACIER | MERGE | SHANGHAI | PRAGUE => {
+                Self::BERLIN
+            }
             CANCUN => Self::CANCUN,
             LATEST => Self::LATEST,
             #[cfg(feature = "optimism")]

@@ -352,8 +352,8 @@ opcodes! {
     0xF3 => RETURN       => control::ret,
     0xF4 => DELEGATECALL => host::delegate_call::<H, SPEC>,
     0xF5 => CREATE2      => host::create::<true, H, SPEC>,
-    // 0xF6
-    // 0xF7
+    0xF6 => AUTH         => host::auth::<H, SPEC>,
+    0xF7 => AUTHCALL     => host::auth_call::<H, SPEC>,
     // 0xF8
     // 0xF9
     0xFA => STATICCALL   => host::static_call::<H, SPEC>,
@@ -582,20 +582,24 @@ const fn opcode_gas_info(opcode: u8, spec: SpecId) -> OpInfo {
         CODESIZE => OpInfo::gas(gas::BASE),
         CODECOPY => OpInfo::dynamic_gas(),
         GASPRICE => OpInfo::gas(gas::BASE),
-        EXTCODESIZE => OpInfo::gas(if SpecId::enabled(spec, SpecId::BERLIN) {
-            gas::WARM_STORAGE_READ_COST // add only part of gas
-        } else if SpecId::enabled(spec, SpecId::TANGERINE) {
-            700
-        } else {
-            20
-        }),
-        EXTCODECOPY => OpInfo::gas(if SpecId::enabled(spec, SpecId::BERLIN) {
-            gas::WARM_STORAGE_READ_COST // add only part of gas
-        } else if SpecId::enabled(spec, SpecId::TANGERINE) {
-            700
-        } else {
-            20
-        }),
+        EXTCODESIZE => {
+            OpInfo::gas(if SpecId::enabled(spec, SpecId::BERLIN) {
+                gas::WARM_STORAGE_READ_COST // add only part of gas
+            } else if SpecId::enabled(spec, SpecId::TANGERINE) {
+                700
+            } else {
+                20
+            })
+        }
+        EXTCODECOPY => {
+            OpInfo::gas(if SpecId::enabled(spec, SpecId::BERLIN) {
+                gas::WARM_STORAGE_READ_COST // add only part of gas
+            } else if SpecId::enabled(spec, SpecId::TANGERINE) {
+                700
+            } else {
+                20
+            })
+        }
         RETURNDATASIZE => OpInfo::gas(if SpecId::enabled(spec, SpecId::BYZANTIUM) {
             gas::BASE
         } else {
@@ -830,8 +834,8 @@ const fn opcode_gas_info(opcode: u8, spec: SpecId) -> OpInfo {
         RETURN => OpInfo::gas_block_end(0),
         DELEGATECALL => OpInfo::gas_block_end(0),
         CREATE2 => OpInfo::gas_block_end(0),
-        0xF6 => OpInfo::none(),
-        0xF7 => OpInfo::none(),
+        AUTH => OpInfo::dynamic_gas(),
+        AUTHCALL => OpInfo::gas_block_end(0), // TODO: Reassess once AUTHCALL is impl'd
         0xF8 => OpInfo::none(),
         0xF9 => OpInfo::none(),
         STATICCALL => OpInfo::gas_block_end(0),
@@ -907,6 +911,7 @@ pub const fn spec_opcode_gas(spec_id: SpecId) -> &'static [OpInfo; 256] {
         MERGE,
         SHANGHAI,
         CANCUN,
+        PRAGUE,
         LATEST,
     )
 }

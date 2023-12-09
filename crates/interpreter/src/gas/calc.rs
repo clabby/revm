@@ -268,6 +268,7 @@ pub fn call_cost<SPEC: Spec>(
     is_cold: bool,
     is_call_or_callcode: bool,
     is_call_or_staticcall: bool,
+    is_authcall: bool,
 ) -> u64 {
     let transfers_value = value != U256::default();
 
@@ -285,8 +286,8 @@ pub fn call_cost<SPEC: Spec>(
     };
 
     call_gas
-        + xfer_cost(is_call_or_callcode, transfers_value)
-        + new_cost::<SPEC>(is_call_or_staticcall, is_new, transfers_value)
+        + xfer_cost(is_call_or_callcode, transfers_value, is_authcall)
+        + new_cost::<SPEC>(is_call_or_staticcall, is_new, transfers_value, is_authcall)
 }
 
 #[inline]
@@ -303,17 +304,19 @@ pub fn warm_cold_cost<SPEC: Spec>(is_cold: bool, regular_value: u64) -> u64 {
 }
 
 #[inline]
-fn xfer_cost(is_call_or_callcode: bool, transfers_value: bool) -> u64 {
+fn xfer_cost(is_call_or_callcode: bool, transfers_value: bool, is_authcall: bool) -> u64 {
     if is_call_or_callcode && transfers_value {
         CALLVALUE
+    } else if is_authcall {
+        AUTHCALLVALUE
     } else {
         0
     }
 }
 
 #[inline]
-fn new_cost<SPEC: Spec>(is_call_or_staticcall: bool, is_new: bool, transfers_value: bool) -> u64 {
-    if is_call_or_staticcall {
+fn new_cost<SPEC: Spec>(is_call_or_staticcall: bool, is_new: bool, transfers_value: bool, is_authcall: bool) -> u64 {
+    if is_call_or_staticcall || is_authcall {
         // EIP-161: State trie clearing (invariant-preserving alternative)
         if SPEC::enabled(SPURIOUS_DRAGON) {
             if transfers_value && is_new {
