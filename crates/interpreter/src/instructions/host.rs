@@ -532,9 +532,15 @@ fn prepare_call_inputs<H: Host, SPEC: Spec>(
         }
     };
 
-    let transfer = if matches!(scheme, CallScheme::Call | CallScheme::AuthCall) {
+    let transfer = if matches!(scheme, CallScheme::Call) {
         Transfer {
             source: interpreter.contract.address,
+            target: to,
+            value,
+        }
+    } else if scheme == CallScheme::AuthCall {
+        Transfer {
+            source: interpreter.authorized.unwrap(),
             target: to,
             value,
         }
