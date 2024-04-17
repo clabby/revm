@@ -90,6 +90,15 @@ impl<'a, DB: Database> EVMData<'a, DB> {
         Some((acc.info.code_hash, is_cold))
     }
 
+    /// Return account nonce.
+    pub fn nonce(&mut self, address: Address) -> Option<u64> {
+        self.journaled_state
+            .load_account(address, &mut self.db)
+            .map_err(|e| self.error = Some(e))
+            .ok()
+            .map(|(acc, _)| acc.info.nonce)
+    }
+
     /// Load storage slot, if storage is not present inside the account then it will be loaded from database.
     pub fn sload(&mut self, address: Address, index: U256) -> Option<(U256, bool)> {
         // account is always warm. reference on that statement https://eips.ethereum.org/EIPS/eip-2929 see `Note 2:`

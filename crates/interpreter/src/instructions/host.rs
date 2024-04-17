@@ -405,15 +405,20 @@ pub fn auth<H: Host, SPEC: Spec>(interpreter: &mut Interpreter<'_>, host: &mut H
     });
 
     // Build the original auth message and compute the hash.
-    let mut message = [0u8; 97];
+    let mut message = [0u8; 129];
     message[0] = 0x04; // AUTH_MAGIC - add constant?
     message[1..33].copy_from_slice(
         U256::from(host.env().cfg.chain_id)
             .to_be_bytes::<32>()
             .as_ref(),
     );
-    message[33..65].copy_from_slice(interpreter.contract().address.into_word().as_ref());
-    message[65..97].copy_from_slice(commit.unwrap_or_default().as_ref());
+    message[33..65].copy_from_slice(
+        U256::from(host.nonce(authority).unwrap())
+            .to_be_bytes::<32>()
+            .as_ref(),
+    );
+    message[65..97].copy_from_slice(interpreter.contract().address.into_word().as_ref());
+    message[97..129].copy_from_slice(commit.unwrap_or_default().as_ref());
     let message_hash = revm_primitives::keccak256(&message);
 
     // Verify the signature

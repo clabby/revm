@@ -30,6 +30,9 @@ pub trait Host {
     /// Get code hash of `address` and if the account is cold.
     fn code_hash(&mut self, address: Address) -> Option<(B256, bool)>;
 
+    /// Get nonce of `address`.
+    fn nonce(&mut self, address: Address) -> Option<u64>;
+
     /// Get storage value of `address` at `index` and if the account is cold.
     fn sload(&mut self, address: Address, index: U256) -> Option<(U256, bool)>;
 

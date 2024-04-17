@@ -840,6 +840,10 @@ impl<'a, GSPEC: Spec + 'static, DB: Database> Host for EVMImpl<'a, GSPEC, DB> {
         self.data.code_hash(address)
     }
 
+    fn nonce(&mut self, address: Address) -> Option<u64> {
+        self.data.nonce(address)
+    }
+
     fn sload(&mut self, address: Address, index: U256) -> Option<(U256, bool)> {
         self.data.sload(address, index)
     }

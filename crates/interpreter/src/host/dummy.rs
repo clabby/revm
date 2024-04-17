@@ -64,6 +64,11 @@ impl Host for DummyHost {
     }
 
     #[inline]
+    fn nonce(&mut self, _address: Address) -> Option<u64> {
+        Some(0)
+    }
+
+    #[inline]
     fn sload(&mut self, __address: Address, index: U256) -> Option<(U256, bool)> {
         match self.storage.entry(index) {
             Entry::Occupied(entry) => Some((*entry.get(), false)),
