@@ -40,18 +40,20 @@ pub fn reward_beneficiary<SPEC: Spec, EXT, DB: Database>(
         effective_gas_price
     };
 
-    let coinbase_account = context
-        .evm
-        .inner
-        .journaled_state
-        .load_account(beneficiary, &mut context.evm.inner.db)?;
-
-    coinbase_account.data.mark_touch();
-    coinbase_account.data.info.balance = coinbase_account
-        .data
-        .info
-        .balance
-        .saturating_add(coinbase_gas_price * U256::from(gas.spent() - gas.refunded() as u64));
+    let reward = coinbase_gas_price * U256::from(gas.spent() - gas.refunded() as u64);
+    if reward.gt(&U256::ZERO) {
+        let coinbase_account = context
+            .evm
+            .inner
+            .journaled_state
+            .load_account(beneficiary, &mut context.evm.inner.db)?;
+        coinbase_account.data.mark_touch();
+        coinbase_account.data.info.balance = coinbase_account
+            .data
+            .info
+            .balance
+            .saturating_add(reward);
+    }
 
     Ok(())
 }
