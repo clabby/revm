@@ -49,6 +49,11 @@ pub fn validate_initial_tx_gas<SPEC: Spec, DB: Database>(
         .as_ref()
         .map(|l| l.len() as u64)
         .unwrap_or_default();
+    let is_3d_gas_tx = env.tx.max_priority_fees_per_gas.is_some();
+
+    // Fetch the execution gas limit, if amsterdam is enabled. Otherwise use the single-dimension
+    // gas limit.
+    let gas_limit = env.tx.gas_limit::<SPEC>();
 
     let gas = gas::calculate_initial_tx_gas(
         SPEC::SPEC_ID,
@@ -56,15 +61,16 @@ pub fn validate_initial_tx_gas<SPEC: Spec, DB: Database>(
         is_create,
         access_list,
         authorization_list_num,
+        is_3d_gas_tx,
     );
 
     // Additional check to see if limit is big enough to cover initial gas.
-    if gas.initial_gas > env.tx.gas_limit {
+    if gas.initial_gas > gas_limit {
         return Err(InvalidTransaction::CallGasCostMoreThanGasLimit.into());
     }
 
     // EIP-7623
-    if SPEC::SPEC_ID.is_enabled_in(SpecId::PRAGUE) && gas.floor_gas > env.tx.gas_limit {
+    if SPEC::SPEC_ID.is_enabled_in(SpecId::PRAGUE) && gas.floor_gas > gas_limit {
         return Err(InvalidTransaction::GasFloorMoreThanGasLimit.into());
     };
 

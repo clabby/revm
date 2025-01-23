@@ -47,7 +47,7 @@ pub fn last_frame_return<SPEC: Spec, EXT, DB: Database>(
     let refunded = gas.refunded();
 
     // Spend the gas limit. Gas is reimbursed when the tx returns successfully.
-    *gas = Gas::new_spent(context.evm.env.tx.gas_limit);
+    *gas = Gas::new_spent(context.evm.env.tx.gas_limit::<SPEC>());
 
     match instruction_result {
         return_ok!() => {

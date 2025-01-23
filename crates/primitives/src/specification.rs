@@ -29,7 +29,8 @@ pub enum SpecId {
     SHANGHAI = 16,        // Shanghai               17034870 (Timestamp: 1681338455)
     CANCUN = 17,          // Cancun                 19426587 (Timestamp: 1710338135)
     PRAGUE = 18,          // Prague                 TBD
-    OSAKA = 19,           // Prague+EOF             TBD
+    AMSTERDAM = 19,       // 3D Gas                 TBD
+    OSAKA = 20,           // Prague+EOF             TBD
     #[default]
     LATEST = u8::MAX,
 }
@@ -68,8 +69,9 @@ pub enum SpecId {
     GRANITE = 23,
     HOLOCENE = 24,
     PRAGUE = 25,
-    OSAKA = 26,
-    ISTHMUS = 27,
+    AMSTERDAM = 26,
+    OSAKA = 27,
+    ISTHMUS = 28,
     #[default]
     LATEST = u8::MAX,
 }
@@ -112,6 +114,7 @@ impl From<&str> for SpecId {
             "Shanghai" => Self::SHANGHAI,
             "Cancun" => Self::CANCUN,
             "Prague" => Self::PRAGUE,
+            "Amsterdam" => Self::AMSTERDAM,
             "Osaka" => Self::OSAKA,
             #[cfg(feature = "optimism")]
             "Bedrock" => SpecId::BEDROCK,
@@ -156,6 +159,7 @@ impl From<SpecId> for &'static str {
             SpecId::SHANGHAI => "Shanghai",
             SpecId::CANCUN => "Cancun",
             SpecId::PRAGUE => "Prague",
+            SpecId::AMSTERDAM => "Amsterdam",
             SpecId::OSAKA => "Osaka",
             #[cfg(feature = "optimism")]
             SpecId::BEDROCK => "Bedrock",
@@ -219,6 +223,7 @@ spec!(MERGE, MergeSpec);
 spec!(SHANGHAI, ShanghaiSpec);
 spec!(CANCUN, CancunSpec);
 spec!(PRAGUE, PragueSpec);
+spec!(AMSTERDAM, AmsterdamSpec);
 spec!(OSAKA, OsakaSpec);
 
 spec!(LATEST, LatestSpec);
@@ -304,6 +309,10 @@ macro_rules! spec_to_generic {
                 use $crate::PragueSpec as SPEC;
                 $e
             }
+            $crate::SpecId::AMSTERDAM => {
+                use $crate::AmsterdamSpec as SPEC;
+                $e
+            }
             $crate::SpecId::OSAKA => {
                 use $crate::OsakaSpec as SPEC;
                 $e
@@ -373,6 +382,10 @@ macro_rules! spec_to_generic {
             }
             $crate::SpecId::PRAGUE => {
                 use $crate::PragueSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::AMSTERDAM => {
+                use $crate::AmsterdamSpec as SPEC;
                 $e
             }
             $crate::SpecId::OSAKA => {
@@ -456,6 +469,7 @@ mod tests {
         #[cfg(feature = "optimism")]
         spec_to_generic!(HOLOCENE, assert_eq!(SPEC::SPEC_ID, HOLOCENE));
         spec_to_generic!(PRAGUE, assert_eq!(SPEC::SPEC_ID, PRAGUE));
+        spec_to_generic!(AMSTERDAM, assert_eq!(SPEC::SPEC_ID, AMSTERDAM));
         spec_to_generic!(OSAKA, assert_eq!(SPEC::SPEC_ID, OSAKA));
         #[cfg(feature = "optimism")]
         spec_to_generic!(ISTHMUS, assert_eq!(SPEC::SPEC_ID, ISTHMUS));

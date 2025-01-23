@@ -11,6 +11,7 @@ mod bytecode;
 mod constants;
 pub mod db;
 pub mod eip7702;
+pub mod eip7706;
 pub mod env;
 
 #[cfg(any(feature = "c-kzg", feature = "kzg-rs"))]

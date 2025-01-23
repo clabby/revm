@@ -336,7 +336,12 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
         // deduce caller balance with its limit.
         pre_exec.deduct_caller(ctx)?;
 
-        let gas_limit = ctx.evm.env.tx.gas_limit - gas.initial_gas;
+        let tx_gas_limit = if spec_id.is_enabled_in(SpecId::AMSTERDAM) {
+            ctx.evm.env.tx.gas_limits.unwrap_or_default().execution
+        } else {
+            ctx.evm.env.tx.gas_limit
+        };
+        let gas_limit = tx_gas_limit - gas.initial_gas;
 
         // apply EIP-7702 auth list.
         let eip7702_gas_refund = pre_exec.apply_eip7702_auth_list(ctx)? as i64;

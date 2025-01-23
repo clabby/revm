@@ -35,21 +35,62 @@ pub fn difficulty<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, h
     }
 }
 
-pub fn gaslimit<H: Host + ?Sized>(interpreter: &mut Interpreter, host: &mut H) {
+pub fn gaslimit<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     gas!(interpreter, gas::BASE);
-    push!(interpreter, host.env().block.gas_limit);
+    if SPEC::enabled(AMSTERDAM) {
+        push!(
+            interpreter,
+            U256::from(
+                host.env()
+                    .block
+                    .gas_limits
+                    .expect("7706 gas schedule not set in Amsterdam")
+                    .execution
+            )
+        );
+    } else {
+        push!(interpreter, host.env().block.gas_limit);
+    }
 }
 
-pub fn gasprice<H: Host + ?Sized>(interpreter: &mut Interpreter, host: &mut H) {
+pub fn gasprice<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     gas!(interpreter, gas::BASE);
-    push!(interpreter, host.env().effective_gas_price());
+    if SPEC::enabled(AMSTERDAM) {
+        push!(
+            interpreter,
+            U256::from(
+                host.env()
+                    .effective_gas_prices()
+                    .expect("7706 gas schedule not set in Amsterdam")
+                    .execution
+            )
+        );
+    } else {
+        push!(interpreter, host.env().effective_gas_price());
+    }
 }
 
 /// EIP-3198: BASEFEE opcode
 pub fn basefee<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     check!(interpreter, LONDON);
     gas!(interpreter, gas::BASE);
-    push!(interpreter, host.env().block.basefee);
+
+    if SPEC::enabled(AMSTERDAM) {
+        push!(
+            interpreter,
+            U256::from(
+                host.env()
+                    .block
+                    .excess_gas_and_prices
+                    .as_ref()
+                    .expect("7706 gas schedule not set in Amsterdam")
+                    .gas_prices()
+                    .execution
+            )
+        );
+    } else {
+        push!(interpreter, host.env().block.basefee);
+    }
 }
 
 pub fn origin<H: Host + ?Sized>(interpreter: &mut Interpreter, host: &mut H) {
@@ -73,8 +114,23 @@ pub fn blob_hash<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, ho
 pub fn blob_basefee<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     check!(interpreter, CANCUN);
     gas!(interpreter, gas::BASE);
-    push!(
-        interpreter,
-        U256::from(host.env().block.get_blob_gasprice().unwrap_or_default())
-    );
+    if SPEC::enabled(AMSTERDAM) {
+        push!(
+            interpreter,
+            U256::from(
+                host.env()
+                    .block
+                    .excess_gas_and_prices
+                    .as_ref()
+                    .expect("7706 gas schedule not set in Amsterdam")
+                    .excess_gas()
+                    .blob
+            )
+        );
+    } else {
+        push!(
+            interpreter,
+            U256::from(host.env().block.get_blob_gasprice().unwrap_or_default())
+        );
+    }
 }

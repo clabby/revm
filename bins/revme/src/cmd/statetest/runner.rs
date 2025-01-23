@@ -10,8 +10,8 @@ use revm::{
     inspectors::TracerEip3155,
     interpreter::analysis::to_analysed,
     primitives::{
-        calc_excess_blob_gas, keccak256, Bytecode, Bytes, EVMResultGeneric, Env, ExecutionResult,
-        SpecId, TxKind, B256,
+        calc_excess_resource_gas, keccak256, Bytecode, Bytes, EVMResultGeneric, Env,
+        ExecutionResult, SpecId, TxKind, B256,
     },
     Evm, State,
 };
@@ -325,7 +325,7 @@ pub fn execute_test_suite(
                 unit.env.parent_excess_blob_gas,
             ) {
                 env.block.set_blob_excess_gas_and_price(
-                    calc_excess_blob_gas(
+                    calc_excess_resource_gas(
                         parent_blob_gas_used.to(),
                         parent_excess_blob_gas.to(),
                         unit.env

@@ -1,7 +1,8 @@
 use crate::{
     interpreter::{Gas, SuccessOrHalt},
     primitives::{
-        db::Database, EVMError, ExecutionResult, ResultAndState, Spec, SpecId, SpecId::LONDON, U256,
+        db::Database, eip7706::ResourceVector, EVMError, ExecutionResult, ResultAndState, Spec,
+        SpecId, SpecId::LONDON, U256,
     },
     Context, FrameResult,
 };
@@ -75,7 +76,17 @@ pub fn reimburse_caller<SPEC: Spec, EXT, DB: Database>(
     gas: &Gas,
 ) -> Result<(), EVMError<DB::Error>> {
     let caller = context.evm.env.tx.caller;
-    let effective_gas_price = context.evm.env.effective_gas_price();
+
+    let effective_gas_price = if SPEC::enabled(SpecId::AMSTERDAM) {
+        context
+            .evm
+            .env
+            .effective_gas_prices()
+            .map(|v| U256::from(v.execution))
+            .unwrap_or_default()
+    } else {
+        context.evm.env.effective_gas_price()
+    };
 
     // return balance of not spend gas.
     let caller_account = context

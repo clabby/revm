@@ -491,18 +491,18 @@ opcodes! {
     0x38 => CODESIZE     => system::codesize         => stack_io(0, 1), not_eof;
     0x39 => CODECOPY     => system::codecopy         => stack_io(3, 0), not_eof;
 
-    0x3A => GASPRICE       => host_env::gasprice                => stack_io(0, 1);
+    0x3A => GASPRICE       => host_env::gasprice::<H, SPEC>     => stack_io(0, 1);
     0x3B => EXTCODESIZE    => host::extcodesize::<H, SPEC>      => stack_io(1, 1), not_eof;
     0x3C => EXTCODECOPY    => host::extcodecopy::<H, SPEC>      => stack_io(4, 0), not_eof;
     0x3D => RETURNDATASIZE => system::returndatasize::<H, SPEC> => stack_io(0, 1);
     0x3E => RETURNDATACOPY => system::returndatacopy::<H, SPEC> => stack_io(3, 0);
     0x3F => EXTCODEHASH    => host::extcodehash::<H, SPEC>      => stack_io(1, 1), not_eof;
-    0x40 => BLOCKHASH      => host::blockhash::<H, SPEC>          => stack_io(1, 1);
+    0x40 => BLOCKHASH      => host::blockhash::<H, SPEC>        => stack_io(1, 1);
     0x41 => COINBASE       => host_env::coinbase                => stack_io(0, 1);
     0x42 => TIMESTAMP      => host_env::timestamp               => stack_io(0, 1);
     0x43 => NUMBER         => host_env::block_number            => stack_io(0, 1);
     0x44 => DIFFICULTY     => host_env::difficulty::<H, SPEC>   => stack_io(0, 1);
-    0x45 => GASLIMIT       => host_env::gaslimit                => stack_io(0, 1);
+    0x45 => GASLIMIT       => host_env::gaslimit::<H, SPEC>     => stack_io(0, 1);
     0x46 => CHAINID        => host_env::chainid::<H, SPEC>      => stack_io(0, 1);
     0x47 => SELFBALANCE    => host::selfbalance::<H, SPEC>      => stack_io(0, 1);
     0x48 => BASEFEE        => host_env::basefee::<H, SPEC>      => stack_io(0, 1);

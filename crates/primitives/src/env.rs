@@ -2,10 +2,11 @@ pub mod handler_cfg;
 
 pub use handler_cfg::{CfgEnvWithHandlerCfg, EnvWithHandlerCfg, HandlerCfg};
 
+use crate::eip7706::{ResourcePrices, ResourceVector};
 use crate::{
-    calc_blob_gasprice, calc_excess_blob_gas, AccessListItem, Account, Address, AuthorizationList,
-    Bytes, InvalidHeader, InvalidTransaction, Spec, SpecId, B256, GAS_PER_BLOB, MAX_CODE_SIZE,
-    MAX_INITCODE_SIZE, U256, VERSIONED_HASH_VERSION_KZG,
+    calc_excess_resource_gas, calc_resource_gasprice, AccessListItem, Account, Address,
+    AuthorizationList, Bytes, InvalidHeader, InvalidTransaction, Spec, SpecId, B256, GAS_PER_BLOB,
+    MAX_CODE_SIZE, MAX_INITCODE_SIZE, U256, VERSIONED_HASH_VERSION_KZG,
 };
 use alloy_primitives::TxKind;
 use core::cmp::{min, Ordering};
@@ -48,6 +49,25 @@ impl Env {
         }
     }
 
+    #[inline]
+    pub fn effective_gas_prices(&self) -> Option<ResourceVector> {
+        let max_fees = self.tx.max_fees_per_gas?;
+        let priority_fees = self.tx.max_priority_fees_per_gas?;
+        let block_basefees = self.block.excess_gas_and_prices.as_ref()?.gas_prices();
+
+        assert!(max_fees.all_less_or_equal(&block_basefees));
+
+        Some(ResourceVector::new(
+            max_fees
+                .execution
+                .min(block_basefees.execution + priority_fees.execution),
+            max_fees
+                .calldata
+                .min(block_basefees.calldata + priority_fees.calldata),
+            max_fees.blob.min(block_basefees.blob + priority_fees.blob),
+        ))
+    }
+
     /// Calculates the [EIP-4844] `data_fee` of the transaction.
     ///
     /// Returns `None` if `Cancun` is not enabled. This is enforced in [`Env::validate_block_env`].
@@ -84,6 +104,13 @@ impl Env {
         if SPEC::enabled(SpecId::CANCUN) && self.block.blob_excess_gas_and_price.is_none() {
             return Err(InvalidHeader::ExcessBlobGasNotSet);
         }
+        // `gas_limits` and `excess_gas` are required for Amsterdam.
+        if SPEC::enabled(SpecId::AMSTERDAM)
+            && self.block.gas_limits.is_none()
+            && self.block.excess_gas_and_prices.is_none()
+        {
+            return Err(InvalidHeader::AmsterdamFieldsNotSet);
+        }
         Ok(())
     }
 
@@ -99,10 +126,11 @@ impl Env {
             }
         }
 
+        let (block_gas_limit, tx_gas_limit) =
+            (self.block.gas_limit::<SPEC>(), self.tx.gas_limit::<SPEC>());
+
         // Check if gas_limit is more than block_gas_limit
-        if !self.cfg.is_block_gas_limit_disabled()
-            && U256::from(self.tx.gas_limit) > self.block.gas_limit
-        {
+        if !self.cfg.is_block_gas_limit_disabled() && U256::from(tx_gas_limit) > block_gas_limit {
             return Err(InvalidTransaction::CallerGasLimitMoreThanBlock);
         }
 
@@ -246,18 +274,26 @@ impl Env {
             }
         }
 
-        let mut balance_check = U256::from(self.tx.gas_limit)
-            .checked_mul(self.tx.gas_price)
-            .and_then(|gas_cost| gas_cost.checked_add(self.tx.value))
-            .ok_or(InvalidTransaction::OverflowPaymentInTransaction)?;
-
-        if SPEC::enabled(SpecId::CANCUN) {
-            // if the tx is not a blob tx, this will be None, so we add zero
-            let data_fee = self.calc_max_data_fee().unwrap_or_default();
-            balance_check = balance_check
-                .checked_add(U256::from(data_fee))
+        let balance_check = if SPEC::enabled(SpecId::AMSTERDAM) {
+            let balance_check = self.tx.max_fees_per_gas.unwrap_or_default()
+                * self.tx.gas_limits.unwrap_or_default();
+            U256::from(balance_check.sum())
+        } else {
+            let mut balance_check = U256::from(self.tx.gas_limit::<SPEC>())
+                .checked_mul(self.tx.gas_price)
+                .and_then(|gas_cost| gas_cost.checked_add(self.tx.value))
                 .ok_or(InvalidTransaction::OverflowPaymentInTransaction)?;
-        }
+
+            if SPEC::enabled(SpecId::CANCUN) {
+                // if the tx is not a blob tx, this will be None, so we add zero
+                let data_fee = self.calc_max_data_fee().unwrap_or_default();
+                balance_check = balance_check
+                    .checked_add(U256::from(data_fee))
+                    .ok_or(InvalidTransaction::OverflowPaymentInTransaction)?;
+            }
+
+            balance_check
+        };
 
         // Check if account has enough balance for gas_limit*gas_price and value transfer.
         // Transfer will be done inside `*_inner` functions.
@@ -496,15 +532,41 @@ pub struct BlockEnv {
     /// Incorporated as part of the Cancun upgrade via [EIP-4844].
     ///
     /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
-    pub blob_excess_gas_and_price: Option<BlobExcessGasAndPrice>,
+    pub blob_excess_gas_and_price: Option<ExcessGasAndPrice>,
+    /// Excess resource gas and their respective gasprices.
+    ///
+    /// See [EIP-7706].
+    ///
+    /// [EIP-7706]: https://eips.ethereum.org/EIPS/eip-7706
+    pub excess_gas_and_prices: Option<ResourcePrices>,
+    /// Gas limits for resources.
+    ///
+    /// See [EIP-7706].
+    ///
+    /// [EIP-7706]: https://eips.ethereum.org/EIPS/eip-7706
+    pub gas_limits: Option<ResourceVector>,
 }
 
 impl BlockEnv {
+    /// Returns the total gas limit for the block.
+    #[inline]
+    pub fn gas_limit<SPEC: Spec>(&self) -> U256 {
+        if SPEC::enabled(SpecId::AMSTERDAM) {
+            U256::from(
+                self.gas_limits
+                    .as_ref()
+                    .map(|v| v.execution)
+                    .unwrap_or_default(),
+            )
+        } else {
+            self.gas_limit
+        }
+    }
+
     /// Takes `blob_excess_gas` saves it inside env
     /// and calculates `blob_fee` with [`BlobExcessGasAndPrice`].
     pub fn set_blob_excess_gas_and_price(&mut self, excess_blob_gas: u64, is_prague: bool) {
-        self.blob_excess_gas_and_price =
-            Some(BlobExcessGasAndPrice::new(excess_blob_gas, is_prague));
+        self.blob_excess_gas_and_price = Some(ExcessGasAndPrice::new(excess_blob_gas, is_prague));
     }
 
     /// See [EIP-4844] and [`crate::calc_blob_gasprice`].
@@ -514,9 +576,7 @@ impl BlockEnv {
     /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
     #[inline]
     pub fn get_blob_gasprice(&self) -> Option<u128> {
-        self.blob_excess_gas_and_price
-            .as_ref()
-            .map(|a| a.blob_gasprice)
+        self.blob_excess_gas_and_price.as_ref().map(|a| a.gasprice)
     }
 
     /// Return `blob_excess_gas` header field. See [EIP-4844].
@@ -528,7 +588,7 @@ impl BlockEnv {
     pub fn get_blob_excess_gas(&self) -> Option<u64> {
         self.blob_excess_gas_and_price
             .as_ref()
-            .map(|a| a.excess_blob_gas)
+            .map(|a| a.excess_gas)
     }
 
     /// Clears environment and resets fields to default values.
@@ -548,7 +608,13 @@ impl Default for BlockEnv {
             basefee: U256::ZERO,
             difficulty: U256::ZERO,
             prevrandao: Some(B256::ZERO),
-            blob_excess_gas_and_price: Some(BlobExcessGasAndPrice::new(0, true)),
+            blob_excess_gas_and_price: Some(ExcessGasAndPrice::new(0, true)),
+            excess_gas_and_prices: Some(ResourcePrices::new(
+                ExcessGasAndPrice::new(0, true),
+                ExcessGasAndPrice::new(0, true),
+                ExcessGasAndPrice::new(0, true),
+            )),
+            gas_limits: Some(ResourceVector::new(0, 0, 0)),
         }
     }
 }
@@ -619,6 +685,21 @@ pub struct TxEnv {
     /// [EIP-Set EOA account code for one transaction](https://eips.ethereum.org/EIPS/eip-7702)
     pub authorization_list: Option<AuthorizationList>,
 
+    /// The gas limits for the various resources.
+    ///
+    /// See [EIP-7706](https://eips.ethereum.org/EIPS/eip-7706)
+    pub gas_limits: Option<ResourceVector>,
+
+    /// The max fees per gas
+    ///
+    /// See [EIP-7706](https://eips.ethereum.org/EIPS/eip-7706)
+    pub max_fees_per_gas: Option<ResourceVector>,
+
+    /// The max priority fees per gas
+    ///
+    /// See [EIP-7706](https://eips.ethereum.org/EIPS/eip-7706)
+    pub max_priority_fees_per_gas: Option<ResourceVector>,
+
     #[cfg_attr(feature = "serde", serde(flatten))]
     #[cfg(feature = "optimism")]
     /// Optimism fields.
@@ -630,6 +711,7 @@ pub enum TxType {
     Eip1559,
     BlobTx,
     EofCreate,
+    Eip7706,
 }
 
 impl TxEnv {
@@ -639,6 +721,15 @@ impl TxEnv {
     #[inline]
     pub fn get_total_blob_gas(&self) -> u64 {
         GAS_PER_BLOB * self.blob_hashes.len() as u64
+    }
+
+    #[inline]
+    pub fn gas_limit<SPEC: Spec>(&self) -> u64 {
+        if SPEC::enabled(SpecId::AMSTERDAM) {
+            self.gas_limits.map(|v| v.execution).unwrap_or_default()
+        } else {
+            self.gas_limit
+        }
     }
 
     /// Clears environment and resets fields to default values.
@@ -664,40 +755,45 @@ impl Default for TxEnv {
             blob_hashes: Vec::new(),
             max_fee_per_blob_gas: None,
             authorization_list: None,
+            gas_limits: None,
+            max_fees_per_gas: None,
+            max_priority_fees_per_gas: None,
             #[cfg(feature = "optimism")]
             optimism: OptimismFields::default(),
         }
     }
 }
 
-/// Structure holding block blob excess gas and it calculates blob fee.
+/// Structure holding block excess gas and it calculates resource fees.
 ///
-/// Incorporated as part of the Cancun upgrade via [EIP-4844].
+/// Incorporated as part of the Cancun upgrade via [EIP-4844], and used
+/// for all resources in the 3d fee market introduced via [EIP-7706].
 ///
 /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+/// [EIP-7706]: https://eips.ethereum.org/EIPS/eip-7706
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct BlobExcessGasAndPrice {
-    /// The excess blob gas of the block.
-    pub excess_blob_gas: u64,
-    /// The calculated blob gas price based on the `excess_blob_gas`, See [calc_blob_gasprice]
-    pub blob_gasprice: u128,
+pub struct ExcessGasAndPrice {
+    /// The excess gas of the resource.
+    pub excess_gas: u64,
+    /// The calculated resource gas price based on the `excess_gas`, See [calc_resource_gasprice]
+    pub gasprice: u128,
 }
 
-impl BlobExcessGasAndPrice {
-    /// Creates a new instance by calculating the blob gas price with [`calc_blob_gasprice`].
-    pub fn new(excess_blob_gas: u64, is_prague: bool) -> Self {
-        let blob_gasprice = calc_blob_gasprice(excess_blob_gas, is_prague);
+impl ExcessGasAndPrice {
+    /// Creates a new instance by calculating the gas price with [`calc_resource_gasprice`].
+    pub fn new(excess_gas: u64, is_prague: bool) -> Self {
+        let gasprice = calc_resource_gasprice(excess_gas, is_prague);
         Self {
-            excess_blob_gas,
-            blob_gasprice,
+            excess_gas,
+            gasprice,
         }
     }
 
     /// Calculate this block excess gas and price from the parent excess gas and gas used
-    /// and the target blob gas per block.
+    /// and the target resource gas per block.
     ///
-    /// This fields will be used to calculate `excess_blob_gas` with [`calc_excess_blob_gas`] func.
+    /// This fields will be used to calculate `excess_gas` with [`calc_excess_resource_gas`] func.
     pub fn from_parent_and_target(
         parent_excess_blob_gas: u64,
         parent_blob_gas_used: u64,
@@ -705,7 +801,7 @@ impl BlobExcessGasAndPrice {
         is_prague: bool,
     ) -> Self {
         Self::new(
-            calc_excess_blob_gas(
+            calc_excess_resource_gas(
                 parent_excess_blob_gas,
                 parent_blob_gas_used,
                 parent_target_blob_gas_per_block,

@@ -384,6 +384,7 @@ pub fn calculate_initial_tx_gas(
     is_create: bool,
     access_list: &[AccessListItem],
     authorization_list_num: u64,
+    is_3d_gas_tx: bool,
 ) -> InitialAndFloorGas {
     let mut gas = InitialAndFloorGas::default();
 
@@ -421,6 +422,17 @@ pub fn calculate_initial_tx_gas(
 
         // Calculate gas floor for EIP-7623
         gas.floor_gas = calc_tx_floor_cost(tokens_in_calldata);
+    }
+
+    // EIP-7706: Three dimensional gas model
+    // Disables EIP-7623
+    if spec_id.is_enabled_in(SpecId::AMSTERDAM) {
+        gas.floor_gas = 0;
+
+        // EIP-7706: Three dimensional gas model tx does not have an intrinsic calldata cost.
+        if is_3d_gas_tx {
+            gas.initial_gas -= tokens_in_calldata * STANDARD_TOKEN_COST;
+        }
     }
 
     gas

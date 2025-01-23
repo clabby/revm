@@ -417,6 +417,10 @@ pub enum InvalidHeader {
     PrevrandaoNotSet,
     /// `excess_blob_gas` is not set for Cancun and above.
     ExcessBlobGasNotSet,
+    /// `excess_calldata_gas` is not set for Amsterdam and above.
+    ExcessCalldataGasNotSet,
+    /// `gas_limits` or `excess_gas` is not set for Amsterdam and above.
+    AmsterdamFieldsNotSet,
 }
 
 #[cfg(feature = "std")]
@@ -427,6 +431,8 @@ impl fmt::Display for InvalidHeader {
         match self {
             Self::PrevrandaoNotSet => write!(f, "`prevrandao` not set"),
             Self::ExcessBlobGasNotSet => write!(f, "`excess_blob_gas` not set"),
+            Self::ExcessCalldataGasNotSet => write!(f, "`excess_calldata_gas` not set"),
+            Self::AmsterdamFieldsNotSet => write!(f, "`gas_limits` or `excess_gas` not set"),
         }
     }
 }

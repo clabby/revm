@@ -8,28 +8,30 @@ pub use alloy_primitives::keccak256;
 pub const KECCAK_EMPTY: B256 =
     b256!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470");
 
-/// Calculates the `excess_blob_gas` from the parent header's `blob_gas_used` and `excess_blob_gas`.
+/// Calculates the `excess_gas` from the parent header's `gas_used` and `excess_gas`.
 ///
 /// See also [the EIP-4844 helpers]<https://eips.ethereum.org/EIPS/eip-4844#helpers>
 /// (`calc_excess_blob_gas`).
+/// and [EIP-7706](https://eips.ethereum.org/EIPS/eip-7706)
 ///
 /// EIP-7742: Uncouple blob count between CL and EL
 /// Removes hardcoded constants and uses the `target_blob_gas_per_block` from the parent header.
 #[inline]
-pub fn calc_excess_blob_gas(
-    parent_excess_blob_gas: u64,
-    parent_blob_gas_used: u64,
-    parent_target_blob_gas_per_block: u64,
+pub fn calc_excess_resource_gas(
+    parent_excess_gas: u64,
+    parent_gas_used: u64,
+    parent_target_gas_per_block: u64,
 ) -> u64 {
-    (parent_excess_blob_gas + parent_blob_gas_used).saturating_sub(parent_target_blob_gas_per_block)
+    (parent_excess_gas + parent_gas_used).saturating_sub(parent_target_gas_per_block)
 }
 
-/// Calculates the blob gas price from the header's excess blob gas field.
+/// Calculates the gas price from the header's excess gas field.
 ///
 /// See also [the EIP-4844 helpers](https://eips.ethereum.org/EIPS/eip-4844#helpers)
 /// (`get_blob_gasprice`).
+/// and [EIP-7706](https://eips.ethereum.org/EIPS/eip-7706)
 #[inline]
-pub fn calc_blob_gasprice(excess_blob_gas: u64, is_prague: bool) -> u128 {
+pub fn calc_resource_gasprice(excess_blob_gas: u64, is_prague: bool) -> u128 {
     fake_exponential(
         MIN_BLOB_GASPRICE,
         excess_blob_gas,
@@ -128,7 +130,7 @@ mod tests {
             ),
         ] {
             let actual =
-                calc_excess_blob_gas(excess, blobs * GAS_PER_BLOB, TARGET_BLOB_GAS_PER_BLOCK);
+                calc_excess_resource_gas(excess, blobs * GAS_PER_BLOB, TARGET_BLOB_GAS_PER_BLOCK);
             assert_eq!(actual, expected, "test: {t:?}");
         }
     }
@@ -152,7 +154,7 @@ mod tests {
         ];
 
         for &(excess, expected) in blob_fee_vectors {
-            let actual = calc_blob_gasprice(excess, false);
+            let actual = calc_resource_gasprice(excess, false);
             assert_eq!(actual, expected, "test: {excess}");
         }
     }
