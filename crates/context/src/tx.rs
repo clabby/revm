@@ -1,4 +1,4 @@
-use context_interface::transaction::AuthorizationItem;
+use context_interface::transaction::{AuthorizationItem, FeeSchedule};
 use context_interface::Transaction;
 use core::fmt::Debug;
 use primitives::{Address, Bytes, TxKind, B256, U256};
@@ -73,6 +73,16 @@ pub struct TxEnv {
     ///
     /// [EIP-7702]: https://eips.ethereum.org/EIPS/eip-7702
     pub authorization_list: Vec<AuthorizationItem>,
+
+    /// The max fees per gas
+    ///
+    /// See [EIP-7706](https://eips.ethereum.org/EIPS/eip-7706)
+    pub max_fees_per_gas: Option<FeeSchedule>,
+
+    /// The max priority fees per gas
+    ///
+    /// See [EIP-7706](https://eips.ethereum.org/EIPS/eip-7706)
+    pub max_priority_fees_per_gas: Option<FeeSchedule>,
 }
 
 impl Default for TxEnv {
@@ -92,6 +102,8 @@ impl Default for TxEnv {
             blob_hashes: Vec::new(),
             max_fee_per_blob_gas: 0,
             authorization_list: Vec::new(),
+            max_fees_per_gas: None,
+            max_priority_fees_per_gas: None,
         }
     }
 }
@@ -163,5 +175,13 @@ impl Transaction for TxEnv {
 
     fn max_priority_fee_per_gas(&self) -> Option<u128> {
         self.gas_priority_fee
+    }
+
+    fn max_fees_per_gas(&self) -> Option<FeeSchedule> {
+        self.max_fees_per_gas
+    }
+
+    fn max_priority_fees_per_gas(&self) -> Option<FeeSchedule> {
+        self.max_priority_fees_per_gas
     }
 }

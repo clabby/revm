@@ -10,26 +10,27 @@ pub use SpecId::*;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, enumn::N)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum SpecId {
-    FRONTIER = 0,     // Frontier               0
-    FRONTIER_THAWING, // Frontier Thawing       200000
-    HOMESTEAD,        // Homestead              1150000
-    DAO_FORK,         // DAO Fork               1920000
-    TANGERINE,        // Tangerine Whistle      2463000
-    SPURIOUS_DRAGON,  // Spurious Dragon        2675000
-    BYZANTIUM,        // Byzantium              4370000
-    CONSTANTINOPLE,   // Constantinople         7280000 is overwritten with PETERSBURG
-    PETERSBURG,       // Petersburg             7280000
-    ISTANBUL,         // Istanbul	            9069000
-    MUIR_GLACIER,     // Muir Glacier           9200000
-    BERLIN,           // Berlin	                12244000
-    LONDON,           // London	                12965000
-    ARROW_GLACIER,    // Arrow Glacier          13773000
-    GRAY_GLACIER,     // Gray Glacier           15050000
-    MERGE,            // Paris/Merge            15537394 (TTD: 58750000000000000000000)
-    SHANGHAI,         // Shanghai               17034870 (Timestamp: 1681338455)
-    CANCUN,           // Cancun                 19426587 (Timestamp: 1710338135)
-    PRAGUE,           // Prague                 TBD
-    OSAKA,            // Osaka                  TBD
+    FRONTIER = 0,          // Frontier               0
+    FRONTIER_THAWING,      // Frontier Thawing       200000
+    HOMESTEAD,             // Homestead              1150000
+    DAO_FORK,              // DAO Fork               1920000
+    TANGERINE,             // Tangerine Whistle      2463000
+    SPURIOUS_DRAGON,       // Spurious Dragon        2675000
+    BYZANTIUM,             // Byzantium              4370000
+    CONSTANTINOPLE,        // Constantinople         7280000 is overwritten with PETERSBURG
+    PETERSBURG,            // Petersburg             7280000
+    ISTANBUL,              // Istanbul	            9069000
+    MUIR_GLACIER,          // Muir Glacier           9200000
+    BERLIN,                // Berlin	                12244000
+    LONDON,                // London	                12965000
+    ARROW_GLACIER,         // Arrow Glacier          13773000
+    GRAY_GLACIER,          // Gray Glacier           15050000
+    MERGE,                 // Paris/Merge            15537394 (TTD: 58750000000000000000000)
+    SHANGHAI,              // Shanghai               17034870 (Timestamp: 1681338455)
+    CANCUN,                // Cancun                 19426587 (Timestamp: 1710338135)
+    PRAGUE,                // Prague                 TBD
+    THREE_DIMENSIONAL_GAS, // 3D Gas                 TBD
+    OSAKA,                 // Osaka                  TBD
     #[default]
     LATEST = u8::MAX,
 }
@@ -69,6 +70,7 @@ pub mod name {
     pub const SHANGHAI: &str = "Shanghai";
     pub const CANCUN: &str = "Cancun";
     pub const PRAGUE: &str = "Prague";
+    pub const THREE_DIMENSIONAL_GAS: &str = "3D Gas";
     pub const OSAKA: &str = "PragueEOF";
     pub const LATEST: &str = "Latest";
 }
@@ -95,6 +97,7 @@ impl From<&str> for SpecId {
             name::SHANGHAI => Self::SHANGHAI,
             name::CANCUN => Self::CANCUN,
             name::PRAGUE => Self::PRAGUE,
+            name::THREE_DIMENSIONAL_GAS => Self::THREE_DIMENSIONAL_GAS,
             name::OSAKA => Self::OSAKA,
             name::LATEST => Self::LATEST,
             _ => Self::LATEST,
@@ -124,6 +127,7 @@ impl From<SpecId> for &'static str {
             SpecId::SHANGHAI => name::SHANGHAI,
             SpecId::CANCUN => name::CANCUN,
             SpecId::PRAGUE => name::PRAGUE,
+            SpecId::THREE_DIMENSIONAL_GAS => name::THREE_DIMENSIONAL_GAS,
             SpecId::OSAKA => name::OSAKA,
             SpecId::LATEST => name::LATEST,
         }

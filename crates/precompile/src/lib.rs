@@ -295,7 +295,7 @@ impl PrecompileSpecId {
             ISTANBUL | MUIR_GLACIER => Self::ISTANBUL,
             BERLIN | LONDON | ARROW_GLACIER | GRAY_GLACIER | MERGE | SHANGHAI => Self::BERLIN,
             CANCUN => Self::CANCUN,
-            PRAGUE | OSAKA => Self::PRAGUE,
+            PRAGUE | THREE_DIMENSIONAL_GAS | OSAKA => Self::PRAGUE,
             LATEST => Self::LATEST,
         }
     }

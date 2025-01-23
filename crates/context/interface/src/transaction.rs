@@ -15,6 +15,9 @@ pub trait TransactionError: Debug + core::error::Error {}
 /// (Optional signer, chain id, nonce, address)
 pub type AuthorizationItem = (Option<Address>, U256, u64, Address);
 
+/// (blob fee per gas, calldata fee per gas, execution fee per gas)
+pub type FeeSchedule = (u64, u64, u64);
+
 /// Main Transaction trait that abstracts and specifies all transaction currently supported by Ethereum
 ///
 /// Access to any associated type is gaited behind [`tx_type`][Transaction::tx_type] function.
@@ -144,6 +147,16 @@ pub trait Transaction {
         };
         min(max_fee, base_fee.saturating_add(max_priority_fee))
     }
+
+    /// Returns the [FeeSchedule] for the max fee per gas on each resource.
+    ///
+    /// See [EIP-7706](https://eips.ethereum.org/EIPS/eip-7706)
+    fn max_fees_per_gas(&self) -> Option<FeeSchedule>;
+
+    /// Returns the [FeeSchedule] for the max priority fee per gas on each resource.
+    ///
+    /// See [EIP-7706](https://eips.ethereum.org/EIPS/eip-7706)
+    fn max_priority_fees_per_gas(&self) -> Option<FeeSchedule>;
 }
 
 #[auto_impl(&, &mut, Box, Arc)]

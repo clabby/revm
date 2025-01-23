@@ -64,7 +64,9 @@ impl<CTX, ERROR> OpPrecompileProvider<CTX, ERROR> {
             )) => Self::new(Precompiles::new(spec.into_eth_spec().into())),
             OpSpec::Op(OpSpecId::FJORD) => Self::new(fjord()),
             OpSpec::Op(OpSpecId::GRANITE)
-            | OpSpec::Eth(SpecId::PRAGUE | SpecId::OSAKA | SpecId::LATEST) => Self::new(granite()),
+            | OpSpec::Eth(
+                SpecId::PRAGUE | SpecId::THREE_DIMENSIONAL_GAS | SpecId::OSAKA | SpecId::LATEST,
+            ) => Self::new(granite()),
         }
     }
 }

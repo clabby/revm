@@ -2,7 +2,7 @@ use super::deposit::{DepositTransaction, DepositTransactionParts};
 use revm::{
     context::TxEnv,
     context_interface::{
-        transaction::{AuthorizationItem, Transaction},
+        transaction::{AuthorizationItem, FeeSchedule, Transaction},
         Journal, TransactionGetter,
     },
     primitives::{Address, Bytes, TxKind, B256, U256},
@@ -119,6 +119,14 @@ impl<T: Transaction> Transaction for OpTransaction<T> {
 
     fn authorization_list(&self) -> impl Iterator<Item = AuthorizationItem> {
         self.tx.authorization_list()
+    }
+
+    fn max_fees_per_gas(&self) -> Option<FeeSchedule> {
+        self.tx.max_fees_per_gas()
+    }
+
+    fn max_priority_fees_per_gas(&self) -> Option<FeeSchedule> {
+        self.tx.max_priority_fees_per_gas()
     }
 }
 
