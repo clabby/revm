@@ -141,16 +141,39 @@ impl Env {
 
         // BASEFEE tx check
         if SPEC::enabled(SpecId::LONDON) {
-            if let Some(priority_fee) = self.tx.gas_priority_fee {
-                if priority_fee > self.tx.gas_price {
+            let (tx_priority_fee, tx_fee_per_gas, block_basefee) =
+                if SPEC::enabled(SpecId::AMSTERDAM) {
+                    (
+                        self.tx
+                            .max_priority_fees_per_gas
+                            .map(|v| U256::from(v.execution)),
+                        self.tx
+                            .max_fees_per_gas
+                            .map(|v| U256::from(v.execution))
+                            .unwrap_or_default(),
+                        self.block
+                            .excess_gas_and_prices
+                            .as_ref()
+                            .map(|v| U256::from(v.gas_prices().execution))
+                            .unwrap_or_default(),
+                    )
+                } else {
+                    (
+                        self.tx.gas_priority_fee,
+                        self.tx.gas_price,
+                        self.block.basefee,
+                    )
+                };
+
+            if let Some(priority_fee) = tx_priority_fee {
+                if priority_fee > tx_fee_per_gas {
                     // or gas_max_fee for eip1559
                     return Err(InvalidTransaction::PriorityFeeGreaterThanMaxFee);
                 }
             }
 
             // check minimal cost against basefee
-            if !self.cfg.is_base_fee_check_disabled()
-                && self.effective_gas_price() < self.block.basefee
+            if !self.cfg.is_base_fee_check_disabled() && self.effective_gas_price() < block_basefee
             {
                 return Err(InvalidTransaction::GasPriceLessThanBasefee);
             }
