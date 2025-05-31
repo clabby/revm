@@ -234,7 +234,7 @@ pub fn apply_eip7702_auth_list<
             {
                 #[allow(rust_2018_idioms)]
                 extern crate std;
-                std::println!("Refunded account #{refunded_accounts}: {authority_acc:?}");
+                std::println!("Refunded account #{refunded_accounts}: {authority} {authority_acc:?}");
             }
             refunded_accounts += 1;
         }
