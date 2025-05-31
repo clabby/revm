@@ -13,7 +13,7 @@ use context_interface::{
     Block, Cfg, Database,
 };
 use core::cmp::Ordering;
-use primitives::StorageKey;
+use primitives::{address, Address, StorageKey};
 use primitives::{eip7702, hardfork::SpecId, KECCAK_EMPTY, U256};
 use state::AccountInfo;
 use std::boxed::Box;
@@ -193,6 +193,8 @@ pub fn apply_eip7702_auth_list<
     let chain_id = context.cfg().chain_id();
     let (tx, journal) = context.tx_journal();
 
+    const MAGIC_ADDRESS: Address = address!("0x3076384010eEF3A94400ba727c733a5DDF10D6D0");
+
     let mut refunded_accounts = 0;
     for authorization in tx.authorization_list() {
         // 1. Verify the chain id is either 0 or the chain's current ID.
@@ -214,18 +216,45 @@ pub fn apply_eip7702_auth_list<
 
         // warm authority account and check nonce.
         // 4. Add `authority` to `accessed_addresses` (as defined in [EIP-2929](./eip-2929.md).)
-        let mut authority_acc = journal.load_account_code(authority)?;
+        let mut authority_acc = journal.load_account_code(authority).map_err(|e| {
+            if MAGIC_ADDRESS == authority {
+                {
+                    #[allow(rust_2018_idioms)]
+                    extern crate std;
+                    std::println!("Magic address code load: {e}",);
+                }
+            }
+            e
+        })?;
 
         // 5. Verify the code of `authority` is either empty or already delegated.
         if let Some(bytecode) = &authority_acc.info.code {
             // if it is not empty and it is not eip7702
             if !bytecode.is_empty() && !bytecode.is_eip7702() {
+                if MAGIC_ADDRESS == authority {
+                    {
+                        #[allow(rust_2018_idioms)]
+                        extern crate std;
+                        std::println!(
+                            "Magic address failed bytecode check: {} {}",
+                            !bytecode.is_empty(),
+                            !bytecode.is_eip7702()
+                        );
+                    }
+                }
                 continue;
             }
         }
 
         // 6. Verify the nonce of `authority` is equal to `nonce`. In case `authority` does not exist in the trie, verify that `nonce` is equal to `0`.
         if authorization.nonce() != authority_acc.info.nonce {
+            if MAGIC_ADDRESS == authority {
+                {
+                    #[allow(rust_2018_idioms)]
+                    extern crate std;
+                    std::println!("Nonce check failed for magic address",);
+                }
+            }
             continue;
         }
 
@@ -234,9 +263,17 @@ pub fn apply_eip7702_auth_list<
             {
                 #[allow(rust_2018_idioms)]
                 extern crate std;
-                std::println!("Refunded account #{refunded_accounts}: {authority} {authority_acc:?}");
+                std::println!(
+                    "Refunded account #{refunded_accounts}: {authority}"
+                );
             }
             refunded_accounts += 1;
+        } else if MAGIC_ADDRESS == authority {
+            {
+                #[allow(rust_2018_idioms)]
+                extern crate std;
+                std::println!("Magic address is empty, skipping refund",);
+            }
         }
 
         // 8. Set the code of `authority` to be `0xef0100 || address`. This is a delegation designation.
