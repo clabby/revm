@@ -231,6 +231,11 @@ pub fn apply_eip7702_auth_list<
 
         // 7. Add `PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST` gas to the global refund counter if `authority` exists in the trie.
         if !authority_acc.is_empty() {
+            {
+                #[allow(rust_2018_idioms)]
+                extern crate std;
+                std::println!("Refunded account #{refunded_accounts}: {authority_acc:?}");
+            }
             refunded_accounts += 1;
         }
 
