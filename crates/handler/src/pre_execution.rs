@@ -256,5 +256,11 @@ pub fn apply_eip7702_auth_list<
     let refunded_gas =
         refunded_accounts * (eip7702::PER_EMPTY_ACCOUNT_COST - eip7702::PER_AUTH_BASE_COST);
 
+    {
+        #[allow(rust_2018_idioms)]
+        extern crate std;
+        std::dbg!(refunded_accounts, refunded_gas);
+    }
+
     Ok(refunded_gas)
 }
